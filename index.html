@@ -405,7 +405,7 @@ const IC={menu:'<path d="M4 7h16M4 12h16M4 17h16"/>',x:'<path d="M6 6l12 12M18 6
 const ico=n=>'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+IC[n]+'</svg>';
 
 /* ---------------- view state ---------------- */
-const ui={zone:store.get('sf_zone','mercosur'),carrier:store.get('sf_carrier','correo'),qn:1,phone:store.get('sf_phone',''),pers:{t:'',n:'',f:'varsity',c:'#FFFFFF',zone:'back',open:false,layer:null},team:store.get('sf_team',null),sel:null,color:'#141414',garment:'remera',size:'',qty:1,filter:'Todos',q:'',spin:!reduced,
+const ui={prov:store.get('sf_prov','Gran Buenos Aires (conurbano)'),carrier:store.get('sf_carrier','correo'),qn:1,phone:store.get('sf_phone',''),pers:{t:'',n:'',f:'varsity',c:'#FFFFFF',zone:'back',open:false,layer:null},team:store.get('sf_team',null),sel:null,color:'#141414',garment:'remera',size:'',qty:1,filter:'Todos',q:'',spin:!reduced,
   custom:{raw:null,key:false,layer:null},
   cart:store.get('sf_cart',[]),name:store.get('sf_name',''),dest:store.get('sf_dest','caba'),country:'',note:'',care:'Lavar'};
 const adm={open:false,tab:'pubs',ed:null,sel:0,dirty:false,readOnly:false,busy:false,confirm:null};
@@ -435,7 +435,10 @@ async function textImg(o){
   if(x1<=x0)return null;const pad=12,o2=document.createElement('canvas');o2.width=x1-x0+pad*2;o2.height=y1-y0+pad*2;o2.getContext('2d').drawImage(c,x0-pad,y0-pad,o2.width,o2.height,0,0,o2.width,o2.height);
   return encode(o2,true);
 }
-const ZX=[['mercosur','Mercosur y Chile'],['america','Resto de América'],['europa','Europa'],['mundo','Resto del mundo']];
+const ZX=[['gba','Gran Buenos Aires'],['pba','Interior de Buenos Aires'],['centro','Centro'],['cuyo','Cuyo'],['norte','Norte (NOA y NEA)'],['sur','Patagonia']];
+const PROV=[['Gran Buenos Aires (conurbano)','gba'],['Buenos Aires (interior)','pba'],['Córdoba','centro'],['Santa Fe','centro'],['Entre Ríos','centro'],['La Pampa','centro'],['Mendoza','cuyo'],['San Juan','cuyo'],['San Luis','cuyo'],
+ ['Tucumán','norte'],['Salta','norte'],['Jujuy','norte'],['Catamarca','norte'],['Santiago del Estero','norte'],['La Rioja','norte'],['Misiones','norte'],['Corrientes','norte'],['Chaco','norte'],['Formosa','norte'],
+ ['Neuquén','sur'],['Río Negro','sur'],['Chubut','sur'],['Santa Cruz','sur'],['Tierra del Fuego','sur']];
 const CARR=[['correo','Correo Argentino'],['andreani','Andreani']];
 const KG={remera:.25,buzo:.55,canguro:.7};
 if(!st.shipRates)st.shipRates={correo:{},andreani:{}};
@@ -494,7 +497,7 @@ function makePrint(img,key){let c=toCanvas(img,760);if(key)c=keyOut(c,34);return
 /* ---------------- 3D garment ---------------- */
 const TR=.74,TY0=-1.06,TY1=.86,PI=Math.PI;
 const GAR={
- remera:{wave:0,fold:0,sw:0,scoop:.15,collar:[.011,.024],prof:[[-1,.630,.300],[-.55,.615,.300],[-.05,.630,.310],[.34,.660,.300],[.52,.655,.262],[.62,.560,.212],[.69,.410,.195],[.735,.292,.186],[.755,.245,.182]],
+ remera:{wave:0,fold:0,sw:0,scoop:.075,noLabel:1,collar:[.011,.024],prof:[[-1,.630,.300],[-.55,.615,.300],[-.05,.630,.310],[.34,.660,.300],[.52,.655,.262],[.62,.560,.212],[.69,.410,.195],[.735,.292,.186],[.755,.245,.182]],
    sl:{A:[.40,.40],d:[.876,-.482],L:.66,ry:[.262,.205],rz:[.225,.185],cap:.2,cuff:0}},
  buzo:{wave:0,fold:.006,sw:.4,scoop:.11,collar:[.014,.034],prof:[[-1,.575,.280],[-.93,.585,.285],[-.87,.660,.325],[-.4,.655,.325],[.05,.665,.330],[.34,.690,.315],[.52,.680,.272],[.62,.580,.218],[.69,.420,.200],[.735,.300,.190],[.76,.252,.186]],
    sl:{A:[.385,.435],d:[.60,-.80],L:1.30,ry:[.275,.150],rz:[.235,.140],cap:.11,cuff:1}},
@@ -521,7 +524,7 @@ function torsoPt(G,th,t){
   const ax=Math.abs(x)-.55,ay=y-.3,r=Math.hypot(ax,ay),a=Math.atan2(ay,-ax);
   z+=G.fold*Math.cos(6*a+1.1)*sm(.04,.16,r)*(1-sm(.2,.52,r))*clamp(s*3,-1,1);
   if(G.pocket&&s>0)z+=.011*s*sm(-.9,-.85,y)*(1-sm(-.46,-.4,y))*(1-sm(.36,.43,Math.abs(x)));
-  const ns=sm(.56,G.prof[G.prof.length-1][0],y);y+=-G.scoop*ns*Math.pow(Math.max(0,s),2)+.025*ns*Math.max(0,-s);
+  const ns=sm(.56,G.prof[G.prof.length-1][0],y);y+=-G.scoop*ns*Math.pow(Math.max(0,s),2)+(G.backRise||0)*ns*Math.max(0,-s);
   return [x,y,z];
 }
 function torsoAO(p){const r=Math.hypot(Math.abs(p[0])-.6,p[1]-.3);return 1-.3*(1-sm(.03,.24,r))}
@@ -571,13 +574,17 @@ function garmentGeo(type){
   const top=torsoPt(G,1.5*PI,.93),out={front:half(false),back:half(true),sleeveR:sleeve(1),sleeveL:sleeve(-1),label:[0,top[1]-.035,top[2]+.012]};
   if(!G.hood)out.collar=surf((u,v)=>collarPt(G,u*2*PI,v*2*PI),120,12);
   else{
-    /* hood: grows from the neckline into a rounded cowl, open at the face; the two edges cross low at the front like a real hoodie */
-    const A=.235,B=.33,C=.30,yT=.84,zH=-.11,t0=2.05,gap=v=>.07+.88*sm(0,.4,v);
-    const hp=(u,v)=>{const d=gap(v),th=PI/2+d+(2*PI-2*d)*u,p0=torsoPt(G,th,1),t=t0*(1-v),e=[A*Math.sin(t)*Math.cos(th),yT+B*Math.cos(t),zH+C*Math.sin(t)*Math.sin(th)],w=sm(0,.5,v);
-      return [p0[0]+(e[0]-p0[0])*w,p0[1]+(e[1]-p0[1])*w,p0[2]+(e[2]-p0[2])*w]};
-    out.hood=surf((u,v)=>{const p=hp(u,v);return {p,o:[p[0],p[1]-yT+.12,p[2]-zH],c:1-.18*(1-sm(0,.25,v))}},72,44);
-    out.edges=[0,1].map(u=>Array.from({length:28},(_,i)=>hp(u,i/27)));
-    out.strings=[0,1].map(u=>{const a=hp(u,.12),x=(u?1:-1)*.075,z=Math.max(a[2],.33);return [[a[0],a[1],a[2]],[x,a[1]-.07,z+.01],[x*1.02,a[1]-.26,.352],[x*.96,a[1]-.44,.348]]});
+    /* hood worn down: it follows the back of the body, padded off it, longest at the centre back and rolling into a collar at the front */
+    const tp=(th,t)=>torsoPt(G,th,clamp(t,0,1)),E=1e-3;
+    const nrm=(th,t)=>{const a=tp(th+E,t),b=tp(th-E,t),c=tp(th,t+E),d=tp(th,t-E),u=[a[0]-b[0],a[1]-b[1],a[2]-b[2]],v=[c[0]-d[0],c[1]-d[1],c[2]-d[2]];
+      let n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];const p=tp(th,t);if(n[0]*p[0]+n[1]*.3+n[2]*p[2]<0)n=n.map(q=>-q);const l=Math.hypot(n[0],n[1],n[2])||1;return n.map(q=>q/l)};
+    const D0=.13,D1=.5,GAP=.34;
+    const hp=(u,v)=>{const th=PI/2+GAP+(2*PI-2*GAP)*u,back=Math.pow(Math.max(0,-Math.sin(th)),1.35),depth=D0+(D1-D0)*back,t=1-v*depth,p=tp(th,t),n=nrm(th,t);
+      const rise=sm(0,.12,v),puff=.012*rise+(.05+.035*back)*Math.pow(Math.sin(PI*Math.min(1,v/.92)),.7),lift=.035*rise*(1-sm(.12,.45,v))*back;
+      return [p[0]+n[0]*puff,p[1]+n[1]*puff+lift,p[2]+n[2]*puff]};
+    out.hood=surf((u,v)=>{const p=hp(u,v),q=tp(PI/2+GAP+(2*PI-2*GAP)*u,1);return {p,o:[p[0]-q[0]*.2,p[1]-.2,p[2]-q[2]*.2],c:1-.22*sm(.75,1,v)}},90,36);
+    out.edges=[Array.from({length:60},(_,i)=>hp(i/59,1)),Array.from({length:14},(_,i)=>hp(0,i/13)),Array.from({length:14},(_,i)=>hp(1,i/13))];
+    out.strings=[0,1].map(u=>{const a=hp(u,.25),x=(u?1:-1)*.085;return [[a[0],a[1],a[2]+.01],[x,a[1]-.06,.345],[x*1.02,a[1]-.25,.352],[x*.97,a[1]-.43,.348]]});
   }
   return geoCache[type]=out;
 }
@@ -636,14 +643,14 @@ function Shirt3D(canvas,opt){
     const g=new T.Group(),geo=garmentGeo(type),pick=[];
     const add=(b,m,zone)=>{const o=new T.Mesh(b,m);o.castShadow=o.receiveShadow=true;if(zone){o.userData.zone=zone;pick.push(o)}g.add(o);g.add(new T.Mesh(b,mIn))};
     add(geo.front,mBody,'front');add(geo.back,mBody,'back');add(geo.sleeveL,mSl.sleeveL,'sleeveL');add(geo.sleeveR,mSl.sleeveR,'sleeveR');
-    if(geo.collar){add(geo.collar,mCol);const lab=new T.Mesh(new T.PlaneGeometry(.1,.075),mLab);lab.position.set(geo.label[0],geo.label[1],geo.label[2]);g.add(lab)}
+    if(geo.collar){add(geo.collar,mCol)}if(geo.collar&&!GAR[type].noLabel){const lab=new T.Mesh(new T.PlaneGeometry(.1,.075),mLab);lab.position.set(geo.label[0],geo.label[1],geo.label[2]);g.add(lab)}
     if(geo.hood){add(geo.hood,mHood);
-      geo.edges.forEach(e=>{const m=new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(e.map(q=>new T.Vector3(q[0],q[1],q[2]))),60,.012,8,false),mTrim);m.castShadow=true;g.add(m)});
+      geo.edges.forEach(e=>{const m=new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(e.map(q=>new T.Vector3(q[0],q[1],q[2]))),e.length*2,.013,8,false),mTrim);m.castShadow=true;g.add(m)});
       geo.strings.forEach(sv=>{const pts=sv.map(q=>new T.Vector3(q[0],q[1],q[2])),m=new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts),40,.0075,8,false),mStr);m.castShadow=true;g.add(m);
         const end=pts[pts.length-1],ag=new T.Mesh(new T.CylinderGeometry(.011,.011,.06,12),mTip);ag.position.set(end.x,end.y-.025,end.z);g.add(ag)})}
-    if(opt.hanger&&!GAR[type].hood){const G=GAR[type],t=torsoPt(G,1.5*PI,1),y0=t[1]-.03,pts=[[0,y0,t[2]*.4],[0,y0+.08,0],[0,y0+.16,0],[.012,y0+.215,0],[.045,y0+.245,0],[.08,y0+.235,0],[.095,y0+.2,0],[.085,y0+.17,0]].map(q=>new T.Vector3(q[0],q[1],q[2]));
+    if(opt.hanger){const G=GAR[type],t=torsoPt(G,1.5*PI,1),y0=t[1]-.03,pts=[[0,y0,t[2]*.4],[0,y0+.08,0],[0,y0+.16,0],[.012,y0+.215,0],[.045,y0+.245,0],[.08,y0+.235,0],[.095,y0+.2,0],[.085,y0+.17,0]].map(q=>new T.Vector3(q[0],q[1],q[2]));
       const hook=new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts),64,.0085,10,false),new T.MeshStandardMaterial({color:0xcfd2d6,metalness:.85,roughness:.28}));hook.castShadow=true;g.add(hook)}
-    g.userData.pick=pick;g.position.y=type==='remera'?.1:type==='canguro'?-.02:.14;root.add(g);return groups[type]=g;
+    g.userData.pick=pick;g.position.y=type==='remera'?.1:.14;root.add(g);return groups[type]=g;
   }
   const sc=document.createElement('canvas');sc.width=sc.height=128;const sx=sc.getContext('2d'),gr=sx.createRadialGradient(64,64,4,64,64,62);
   gr.addColorStop(0,'rgba(20,10,4,.55)');gr.addColorStop(1,'rgba(20,10,4,0)');sx.fillStyle=gr;sx.fillRect(0,0,128,128);
@@ -687,10 +694,10 @@ function Shirt3D(canvas,opt){
     Object.keys(GAR).forEach(t=>{if(t===cfg.garment)group(t).visible=true;else if(groups[t])groups[t].visible=false});
     size();const imgs=await Promise.all(src.map(l=>loadImg(l.img)));if(my!==token)return;
     L=[];src.forEach((l,i)=>{const im=imgs[i];if(!im)return;const ar=im.height/im.width;l.w=clamp(+l.w||.5,.04,1.4);l.zone=l.zone||'front';
-      if(l.y==null){let h=l.w*ar;if(h>1.12){l.w*=1.12/h;h=1.12}l.y=(l.top!=null?l.top:.47)-h/2;delete l.top}L.push({ref:l,img:im,ar})});
+      if(l.y==null){let h=l.w*ar;if(h>1.12){l.w*=1.12/h;h=1.12}l.y=(l.top!=null?l.top:.47)-(GAR[cfg.garment].hood&&l.zone==='back'?.28:0)-h/2;delete l.top}L.push({ref:l,img:im,ar})});
     if(sel>=L.length)sel=L.length-1;paint();draw();if(opt.onReady){opt.onReady();opt.onReady=null}
   }
-  function frame0(w,h,z){cam.aspect=w/h;const half=cfg.garment==='remera'?1.2:cfg.garment==='canguro'?1.42:1.36,d=half/Math.tan(15*PI/180)/z;cam.position.set(0,(z-1)*.3+(cfg.garment==='canguro'?.05:0),cam.aspect<1?d/cam.aspect*.98:d);cam.updateProjectionMatrix()}
+  function frame0(w,h,z){cam.aspect=w/h;const half=cfg.garment==='remera'?1.2:1.36,d=half/Math.tan(15*PI/180)/z;cam.position.set(0,(z-1)*.3,cam.aspect<1?d/cam.aspect*.98:d);cam.updateProjectionMatrix()}
   function size(){
     const w=opt.w||canvas.clientWidth||300,h=opt.h||canvas.clientHeight||300;
     rdr.setPixelRatio(opt.w?1:Math.min(window.devicePixelRatio||1,2));rdr.setSize(w,h,false);frame0(w,h,zoom);
@@ -824,7 +831,7 @@ const SHIP=[['caba','Capital Federal','shipCaba'],['arg','Todo el país','shipAr
 function renderShip(){
   $('#shipTabs').innerHTML=SHIP.map(s=>'<button class="tab" role="tab" data-act="dest" data-v="'+s[0]+'" aria-selected="'+(ui.dest===s[0])+'">'+s[1]+'</button>').join('');
   const s=SHIP.find(s=>s[0]===ui.dest)||SHIP[0];
-  $('#shipPane').innerHTML='<h3>'+s[1]+'</h3><p>'+esc(st[s[2]])+'</p>'+(s[0]==='ext'?quoteBox('qPane'):'')+'<button class="btn sm line" data-act="cart">Armar pedido con este envío</button>';
+  $('#shipPane').innerHTML='<h3>'+s[1]+'</h3><p>'+esc(st[s[2]])+'</p>'+(s[0]==='arg'?quoteBox('qPane'):'')+'<button class="btn sm line" data-act="cart">Armar pedido con este envío</button>';
 }
 const CARE=[['Lavar','careLavar'],['Secar','careSecar'],['Planchar','carePlanchar']];
 function renderCare(){
@@ -943,7 +950,7 @@ function openCart(){
    (cartTotal()?'<p class="total"><span>Total estimado</span><b>'+money(cartTotal())+'</b></p><p class="note">No incluye el envío. Te lo confirmamos por mensaje.</p>':'')+
    '<div class="g2"><div class="fld"><label for="oName">Tu nombre</label><input class="inp" id="oName" autocomplete="name" value="'+esc(ui.name)+'"></div><div class="fld"><label for="oPhone">Tu WhatsApp</label><input class="inp" id="oPhone" inputmode="tel" autocomplete="tel" value="'+esc(ui.phone)+'" placeholder="Opcional"></div></div>'+
    '<fieldset class="fld"><legend>¿A dónde lo enviamos?</legend><div class="row">'+SHIP.map(s=>'<button class="opt" data-act="dest" data-v="'+s[0]+'" data-cart="1" aria-pressed="'+(ui.dest===s[0])+'">'+s[1]+'</button>').join('')+'</div></fieldset>'+
-   (ui.dest==='ext'?'<div class="fld"><label for="oCountry">País y ciudad</label><input class="inp" id="oCountry" value="'+esc(ui.country)+'" placeholder="Ej.: Montevideo, Uruguay"></div>'+quoteBox('qCart'):'')+
+   (ui.dest==='ext'?'<div class="fld"><label for="oCountry">País y ciudad</label><input class="inp" id="oCountry" value="'+esc(ui.country)+'" placeholder="Ej.: Montevideo, Uruguay"></div>':'')+(ui.dest==='arg'?quoteBox('qCart'):'')+
    '<div class="fld"><label for="oNote">Nota (opcional)</label><textarea class="inp" id="oNote" placeholder="Nombres para personalizar, fecha en que lo necesitás…">'+esc(ui.note)+'</textarea></div>'+
    '<div class="fld"><span class="lbl">Así llega tu mensaje</span><pre class="msg" id="oMsg"></pre></div>'+
    '<a class="btn '+(hasWa()?'wa':'fox')+'" id="oSend" target="_blank" rel="noopener"'+(ui.cart.length?'':' aria-disabled="true" style="opacity:.5;pointer-events:none"')+'>'+contactIco()+'Enviar pedido por '+contactName()+'</a>'+
@@ -955,25 +962,26 @@ function openCart(){
 /* ---------------- shipping abroad: estimate from the rates the shop loads in the panel ---------------- */
 const gkey=n=>Object.keys(GNAMES).find(k=>GNAMES[k]===n)||'remera';
 const cartKg=()=>ui.cart.reduce((a,i)=>a+(KG[gkey(i.garment)]||.3)*i.qty,0);
+const provZone=()=>(PROV.find(p=>p[0]===ui.prov)||PROV[0])[1];
 function shipEst(c,z,kg){const r=((st.shipRates||{})[c]||{})[z],b=r?+r[0]:0;if(!b)return 0;return b+Math.max(0,Math.ceil(kg-1-1e-9))*(+r[1]||0)}
 const carrierName=()=>(CARR.find(c=>c[0]===ui.carrier)||CARR[0])[1];
 const quoteKg=()=>ui.cart.length?cartKg():ui.qn*KG.remera;
-const shipNow=()=>ui.dest==='ext'?shipEst(ui.carrier,ui.zone,quoteKg()):0;
-function quoteText(){const e=shipEst(ui.carrier,ui.zone,quoteKg());return e?'<b>'+money(e)+'</b> aprox. con '+carrierName():'Todavía no cargamos la tarifa de '+carrierName()+' para esta zona. Escribinos y te la pasamos.'}
+const shipNow=()=>ui.dest==='arg'?shipEst(ui.carrier,provZone(),quoteKg()):0;
+function quoteText(){const e=shipEst(ui.carrier,provZone(),quoteKg());return e?'<b>'+money(e)+'</b> aprox. con '+carrierName()+' a '+esc(ui.prov):'Todavía no cargamos la tarifa de '+carrierName()+' para '+esc(ui.prov)+'. Escribinos y te la pasamos.'}
 function quoteBox(id){
-  return '<div class="quote" id="'+id+'"><span class="lbl">Calculá el envío al exterior</span><div class="row">'+CARR.map(c=>'<button type="button" class="opt" data-act="qcar" data-v="'+c[0]+'" aria-pressed="'+(ui.carrier===c[0])+'">'+c[1]+'</button>').join('')+'</div>'+
-   '<select class="inp qzone" id="'+id+'Z" aria-label="Zona de destino">'+ZX.map(z=>'<option value="'+z[0]+'"'+(ui.zone===z[0]?' selected':'')+'>'+z[1]+'</option>').join('')+'</select>'+
+  return '<div class="quote" id="'+id+'"><span class="lbl">Calculá tu envío</span><div class="row">'+CARR.map(c=>'<button type="button" class="opt" data-act="qcar" data-v="'+c[0]+'" aria-pressed="'+(ui.carrier===c[0])+'">'+c[1]+'</button>').join('')+'</div>'+
+   '<select class="inp qzone" id="'+id+'Z" aria-label="Provincia de destino">'+PROV.map(p=>'<option'+(ui.prov===p[0]?' selected':'')+'>'+esc(p[0])+'</option>').join('')+'</select>'+
    (ui.cart.length?'<p class="note">Tu pedido: '+ui.cart.reduce((a,i)=>a+i.qty,0)+' prendas · peso estimado '+cartKg().toFixed(2)+' kg</p>':'<label class="qn" for="'+id+'N">Prendas<input class="inp qnum" type="number" min="1" max="200" value="'+ui.qn+'" id="'+id+'N"></label>')+
    '<p class="qres">'+quoteText()+'</p><p class="note">Precio orientativo; lo confirmamos al cerrar el pedido. También podés cotizar en <a href="https://www.correoargentino.com.ar" target="_blank" rel="noopener">Correo Argentino</a> o <a href="https://www.andreani.com" target="_blank" rel="noopener">Andreani</a>.</p></div>';
 }
-function updQuote(){$$('.quote .qres').forEach(el=>el.innerHTML=quoteText());$$('[data-act="qcar"]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===ui.carrier));$$('.qzone').forEach(z=>z.value=ui.zone);updOrder()}
+function updQuote(){$$('.quote .qres').forEach(el=>el.innerHTML=quoteText());$$('[data-act="qcar"]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===ui.carrier));$$('.qzone').forEach(z=>z.value=ui.prov);updOrder()}
 
 /* ---------------- server API (only when the page runs on Netlify) ---------------- */
 async function api(path,o){o=o||{};const h={};if(o.json!==undefined){h['Content-Type']='application/json';o.body=JSON.stringify(o.json)}
   if(o.auth==='user'&&ACC.token)h.Authorization='Bearer '+ACC.token;if(o.auth==='admin'&&NET.cred)h.Authorization=NET.cred;
   const r=await fetch('/api/'+path,{method:o.method||'GET',headers:h,body:o.body,cache:'no-store'});let d=null;try{d=await r.json()}catch(e){}
   if(!r.ok){const e=new Error((d&&d.error)||String(r.status));e.status=r.status;throw e}return d}
-const destLabel=()=>({caba:'Capital Federal',arg:'Argentina, fuera de Capital',ext:'Exterior'+(ui.country.trim()?' ('+ui.country.trim()+')':'')+' · '+(ZX.find(z=>z[0]===ui.zone)||ZX[0])[1]}[ui.dest]||'');
+const destLabel=()=>({caba:'Capital Federal',arg:'Argentina · '+ui.prov,ext:'Exterior'+(ui.country.trim()?' ('+ui.country.trim()+')':'')}[ui.dest]||'');
 function orderPayload(kind){
   if(kind==='team'){const T=teamInit(),p=S.products.find(x=>x.id===T.pid),rows=T.rows.filter(r=>r.n.trim()||r.num.trim());
     return {type:'equipo',name:ui.name,phone:ui.phone,club:T.club,design:p?p.title:'Diseño propio',garment:garmentName(T.garment),color:colorName(T.color),rows,dest:destLabel(),total:(p?priceNum(p.price):0)*rows.length}}
@@ -1233,7 +1241,7 @@ function renderPageForm(){
    '<h3>Textos</h3>'+f('ticker','Cinta de anuncios (uno por línea)',lines(st.ticker),'ta')+f('services','Qué hacemos (una línea por servicio: Título | Descripción)',(st.services||[]).map(s=>s.join(' | ')).join('\n'),'ta')+
    f('careLavar','Cuidados: lavar (uno por línea)',lines(st.careLavar),'ta')+f('careSecar','Cuidados: secar',lines(st.careSecar),'ta')+f('carePlanchar','Cuidados: planchar',lines(st.carePlanchar),'ta')+
    '<h3>Preguntas frecuentes</h3>'+f('faq','Una por línea: Pregunta | Respuesta',(st.faq||[]).map(q=>q.join(' | ')).join('\n'),'ta')+
-   '<h3>Tarifas de envío al exterior</h3><p class="note">En pesos: precio hasta 1 kg y precio por cada kg extra. Si una zona queda en 0, el cliente ve «escribinos». Una remera pesa unos 0,25 kg, un buzo 0,55 kg y un canguro 0,7 kg.</p><div class="rates">'+
+   '<h3>Tarifas de envío dentro del país</h3><p class="note">Se usan cuando el cliente elige «Todo el país». En pesos: precio hasta 1 kg y precio por cada kg extra, por zona. Si una zona queda en 0, el cliente ve «escribinos». Una remera pesa unos 0,25 kg, un buzo 0,55 kg y un canguro 0,7 kg.</p><div class="rates">'+
      CARR.map(c=>'<div class="rcar"><b>'+c[1]+'</b>'+ZX.map(z=>{const r=(st.shipRates[c[0]]||{})[z[0]]||[0,0];return '<div class="rrow"><span>'+z[1]+'</span><input class="inp" type="number" min="0" step="100" id="r_'+c[0]+'_'+z[0]+'_0" value="'+(+r[0]||0)+'" aria-label="'+c[1]+' '+z[1]+' hasta 1 kg"><input class="inp" type="number" min="0" step="100" id="r_'+c[0]+'_'+z[0]+'_1" value="'+(+r[1]||0)+'" aria-label="'+c[1]+' '+z[1]+' por kg extra"></div>'}).join('')+'<p class="note rhead"><span></span><span>Hasta 1 kg</span><span>Kg extra</span></p></div>').join('')+'</div>'+
    '<h3>Prendas</h3>'+f('colors','Colores de tela (una línea por color: Nombre | #código)',st.colors.map(c=>c.n+' | '+c.h).join('\n'),'ta')+f('sizes','Talles por defecto (separados por coma)',st.sizes)+
    '<p class="err" id="s_err" role="alert"></p><div class="row"><button class="btn fox">Guardar ajustes</button></div></form>';
@@ -1420,7 +1428,7 @@ document.addEventListener('change',async ev=>{const t=ev.target,id=t.id;
     else if(id==='e_file'&&t.files.length){for(const f of Array.from(t.files))addLayer(makePrint(await readFile(f),adm.ed._key));t.value='';pvSync(true)}
     else if(id==='e_key'){adm.ed._key=t.checked}
     else if(id==='tPid'){const T=teamInit(),p=S.products.find(x=>x.id===t.value);T.pid=t.value;if(p){T.garment=p.garment;T.color=p.color}openTeam()}
-    else if(t.classList.contains('qzone')){ui.zone=t.value;store.set('sf_zone',ui.zone);updQuote()}
+    else if(t.classList.contains('qzone')){ui.prov=t.value;store.set('sf_prov',ui.prov);updQuote()}
     else if(t.classList.contains('ostsel')){const o=(ORD.list||[]).find(x=>x.id===t.dataset.id);try{const n=await api('orders/'+encodeURIComponent(t.dataset.id),{method:'PATCH',json:{status:t.value},auth:'admin'});if(o)Object.assign(o,n);renderOrdersAdm();toast('Estado actualizado. El cliente lo ve en su cuenta.')}catch(e){toast('No se pudo cambiar el estado.')}}
     else if(id==='tGar'){teamInit().garment=t.value;updTeam()}else if(id==='tCol'){teamInit().color=t.value;updTeam()}
     else if(/^ts_\d+$/.test(id)){const r=teamInit().rows[+id.slice(3)];if(r){r.s=t.value;updTeam()}}
